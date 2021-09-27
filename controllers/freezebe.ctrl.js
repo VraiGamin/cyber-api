@@ -45,7 +45,6 @@ exports.getAll = (req, res, next) => {
 					result += column.value + " ";
 				}
 			});
-			console.log(result);
 		});
 		request.on("requestCompleted", function (rowCount, more) {
 			connection.close();
@@ -60,7 +59,6 @@ exports.getOne = (req, res, next) => {
 	let errorDetected = false;
 	var connection = new Connection(config);
 	connection.on("connect", function (err) {
-		console.log("CONNEXION ON");
 		if (err) {
 			// console.log(err);
 			errorDetected = true;
