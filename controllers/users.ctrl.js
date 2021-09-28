@@ -19,14 +19,16 @@ var config = {
 
 exports.login = (req, res, next) => {
 	//recupère l'email et le psw
-	const email = req.body.email;
-	const password = req.body.password;
+	const logUser = {
+		email: req.body.email,
+		password: req.body.password,
+	};
 	//check si l'email existe
 	let errorDetected = false;
 	var connection = new Connection(config);
 	connection.on("connect", function (err) {
 		if (err) {
-			console.log("ERREUR 1:", err);
+			// console.log("ERREUR 1:", err);
 			errorDetected = true;
 			res.status(500).json({ error: "request failed" });
 		}
@@ -36,19 +38,19 @@ exports.login = (req, res, next) => {
 
 	function getUser() {
 		var result = "";
-		request = new Request(`SELECT * FROM users WHERE email = @Email FOR JSON PATH, ROOT('User')`, function (err) {
+		request = new Request(`SELECT * FROM users WHERE email = @Email FOR JSON PATH`, function (err) {
 			if (err) {
-				console.log("ERREUR 2:", err);
+				// console.log("ERREUR 2:", err);
 				errorDetected = true;
 				res.status(500).json({ error: "Request failed" });
 			}
 		});
-		request.addParameter("Email", TYPES.VarChar, email);
+		request.addParameter("Email", TYPES.VarChar, logUser.email);
 
 		request.on("row", function (columns) {
 			columns.forEach(function (column) {
 				if (column.value === null) {
-					// console.log("NULL");
+					console.log("NULL");
 				} else {
 					result += column.value + " ";
 				}
@@ -57,18 +59,29 @@ exports.login = (req, res, next) => {
 		request.on("requestCompleted", function (rowCount, more) {
 			connection.close();
 			if (!errorDetected) {
-				console.log("User: ", result);
 				if (result == "") {
 					//  si non ERREUR
-					res.status(500).json({ error: "No user" });
+					res.status(401).json({ error: "No user" });
 				}
+				//  si oui check le psw
+				goodResult = result.replace("[", "");
+				goodResult2 = goodResult.replace("]", "");
+				const bddUser = JSON.parse(goodResult2);
+				if (bddUser.password === logUser.password) {
+					const accessToken = jwt.sign(
+						{ email: bddUser.email, level: bddUser.level },
+						process.env.SECRET_TOKEN
+					);
+					res.status(200).json({ accessToken });
+				} else {
+					res.status(401).json({ error: "Bad password" });
+				}
+				//  si psw bad ERREUR
 			}
 		});
 		connection.execSql(request);
 	}
-	//  si oui check le psw
-	console.log("PSW :", result.password);
-	//      si psw bad ERREUR
+
 	//      si psw bon jwt.sign
 	//res.send
 };
